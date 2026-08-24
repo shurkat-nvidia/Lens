@@ -63,6 +63,25 @@ These attributes are active when `KUBERNETES_SERVICE_HOST` is set or the `/var/r
 
 ## Add Custom Resource Attributes
 
+Pass the `resource_attributes` argument to `setup_telemetry`:
+
+```python
+handle = setup_telemetry(
+    config,
+    resource_attributes={
+        'dl.rank': rank,
+        'dl.world_size': world_size,
+        'dl.tensor_parallel.size': 4,
+        'dl.pipeline_parallel.size': 2,
+        'dl.data_parallel.size': 8,
+        'megatron.num_layers': 32,
+        'megatron.precision': 'bf16',
+    },
+)
+```
+
+These attributes merge with the auto-detected set. In Jaeger, they appear as **Process** tags and are filterable across every span in the run.
+
 <Warning>
 NeMo Lens does not derive `dl.rank` — it has no notion of a rank. If you omit it,
 a warning is logged at startup: telemetry from this process cannot be filtered by
@@ -116,30 +135,13 @@ attribute should tolerate both. NeMo Lens does not coerce; see `semconv.py`.
 export OTEL_RESOURCE_ATTRIBUTES="dl.rank=5,dl.world_size=8,nemo.run.id=abc123"
 ```
 
-<Warning>
-Build the child's value from a snapshot of the parent's own environment taken at
-import, not from the live `os.environ`. Appending to a variable the parent already
-inherited makes keys accumulate across a restart or a re-`exec`.
-</Warning>
-
-Pass the `resource_attributes` argument to `setup_telemetry`:
-
-```python
-handle = setup_telemetry(
-    config,
-    resource_attributes={
-        'dl.rank': rank,
-        'dl.world_size': world_size,
-        'dl.tensor_parallel.size': 4,
-        'dl.pipeline_parallel.size': 2,
-        'dl.data_parallel.size': 8,
-        'megatron.num_layers': 32,
-        'megatron.precision': 'bf16',
-    },
-)
-```
-
-These attributes merge with the auto-detected set. In Jaeger, they appear as **Process** tags and are filterable across every span in the run.
+<Note>
+Hand-rolling that string is easy to get subtly wrong — values need
+percent-encoding, keys must **not** be encoded, and an inherited value has to be
+merged without piling up duplicate keys. Use
+[`encode_resource_attributes`](#propagate-attributes-to-a-child-process) instead
+of building it yourself.
+</Note>
 
 ## Propagate Attributes to a Child Process
 
@@ -183,12 +185,6 @@ to decide.
 | Repeated calls | The default `inherited` reads the **live** `OTEL_RESOURCE_ATTRIBUTES`, so a value written after `import nemo.lens` is still seen — which matters under `fork`, where the child inherits the parent's already-imported modules. Because a key you pass replaces its earlier occurrence, feeding the result back through `os.environ` in a loop does not accumulate copies. Pass `inherited=""` to start clean. |
 | Non-string keys | Dropped with a warning. `str(key)` would ship `None` as the literal attribute name `"None"`. |
 | Separators in *keys* | Dropped with a warning. The SDK unquotes only the value half, so such a key has no representation; encoding it would ship the escape sequence as the attribute name. No semconv name contains `,` or `=`. |
-
-<Note>
-Values arrive in the child as **strings** — the env format has no other type.
-`resource_attributes={DL_RANK: 3}` yields the integer `3`, the env channel yields
-`"3"`. A collector filtering on a numeric attribute should tolerate both.
-</Note>
 
 
 ## Use Cases
