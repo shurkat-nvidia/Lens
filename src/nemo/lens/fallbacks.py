@@ -31,6 +31,7 @@ Consumer libraries should use these as their ImportError fallback::
 emits at import time, which has to keep working when lens is absent.
 """
 
+import os
 from contextlib import contextmanager
 
 
@@ -99,3 +100,16 @@ class SpanRegistry:
     def resolve(cls, spec):
         """Nothing resolves; every spec entry comes back unknown."""
         return frozenset(), frozenset(p.strip().lower() for p in spec.split(",") if p.strip())
+
+
+def encode_resource_attributes(attributes, inherited=None):
+    """No-op — returns the inherited value unchanged.
+
+    Deliberately not ``""``. With lens absent the child has no lens either, so
+    the attributes are moot, but a launcher-set OTEL_RESOURCE_ATTRIBUTES must
+    still reach the child: clobbering it would break telemetry for anything
+    downstream that does have lens installed.
+    """
+    if inherited is not None:
+        return inherited
+    return os.environ.get("OTEL_RESOURCE_ATTRIBUTES", "")
