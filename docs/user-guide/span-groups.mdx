@@ -15,6 +15,8 @@ A training job can use different levels of tracing detail for different environm
 - **Add iteration boundaries.** Enable a per-step preset in staging to add per-iteration boundaries for a moderate performance cost.
 - **Diagnose performance hangs.** Enable `all` during active debugging to instrument every registered site, which carries the highest performance cost.
 
+Groups are orthogonal to which processes are enabled and to the OTel SDK's own `OTEL_TRACES_SAMPLER`: you can enable a per-step preset, keep 10% of traces at the SDK, and set `enabled` on only one rank.
+
 The primary goal is to toggle granularity through a single env var without code changes, relying on a fast gating check when disabled: `is_span_group_enabled` is one `frozenset` membership test.
 
 ## Register the Groups Your Library Emits
